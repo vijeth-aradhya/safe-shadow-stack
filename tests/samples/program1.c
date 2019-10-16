@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define BUF_SIZE 1000
+
 int vul2(char *arg, char *buffer2)
 {
   strcpy(buffer2, arg);
@@ -10,7 +12,7 @@ int vul2(char *arg, char *buffer2)
 
 int vul1(char *argv[])
 {
-  char buffer[768];
+  char buffer[BUF_SIZE];
   vul2(argv[1], buffer);
 }
 
