@@ -1,0 +1,4 @@
+#!/bin/sh
+
+alias drrun='~/Software/DynamoRIO-Linux-7.1.0-1/bin64/drrun';
+drrun -c sample-dr-clients/helloworld/libhelloworld.so -- $1
