@@ -14,6 +14,7 @@
 ## Resources
 
 * [Code Manipulation API](http://dynamorio.org/docs/API_BT.html) (Dynamo docs)
+* http://dynamorio.org/docs/using.html
 * `drmgr_register_bb_instrumentation_event()`
 
 ## System
