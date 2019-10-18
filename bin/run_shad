@@ -1,0 +1,4 @@
+#!/bin/sh
+
+alias drrun='~/NUS/dynamorio/bin64/drrun'
+drrun -c /home/vt-aradhya/NUS/safe-shadow-stack/shadowcallstack/libshadowcallstack.so -- $1

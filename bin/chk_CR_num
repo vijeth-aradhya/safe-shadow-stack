@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cat $1 | grep CALL | wc -l
+cat $1 | grep RETURN | wc -l

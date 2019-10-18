@@ -1,5 +1,5 @@
 #!/bin/sh
 
-alias drrun='~/Software/DynamoRIO-Linux-7.1.0-1/bin64/drrun'
+alias drrun='~/NUS/dynamorio/bin64/drrun'
 drrun -c /home/vt-aradhya/NUS/safe-shadow-stack/sample-dr-clients/instrcalls/libinstrcalls.so -- /home/vt-aradhya/NUS/safe-shadow-stack/tests/samples/program3 &
 htop -p `echo $!`
