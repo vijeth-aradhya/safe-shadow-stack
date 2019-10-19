@@ -52,6 +52,8 @@
  */
 
 #define SHOW_SYMBOLS 1
+#define VERBOSE 1
+#define VERBOSE_VERBOSE 1
 
 #include "dr_api.h"
 #include "drmgr.h"
@@ -189,6 +191,10 @@ print_address(file_t f, app_pc addr, const char *prefix)
 }
 #endif
 
+byte* get_ret_to_addr(void *drcontext, instr_t *instr) {
+    return decode_next_pc(drcontext, instr_get_app_pc(instr));
+}
+
 static void
 at_call(app_pc instr_addr, app_pc target_addr)
 {
@@ -244,10 +250,25 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #    endif
     }
 #endif
+    
+    //dr_mcontext_t mc = { sizeof(mc), DR_MC_CONTROL /*only need xsp*/ };
+    //dr_get_mcontext(dr_get_current_drcontext(), &mc);
+
     /* instrument calls and returns -- ignore far calls/rets */
     if (instr_is_call_direct(instr)) {
+        //app_pc instr_get_app_pc (instr_t* instr)
+        //byte* decode_next_pc (void* drcontext, byte * pc) 
+        //instr_get_next_app()
+        //instrlist_set_return_target()
+        //DEBUG: dr_printf("CurrPC (Call) " PFX "\n", instr_get_app_pc(instr));
+        dr_printf("CurrPC (Call) " PFX "\n", instr_get_app_pc(instr));
+        dr_printf("RetTo " PFX "\n\n", get_ret_to_addr(drcontext, instr));
+
         dr_insert_call_instrumentation(drcontext, bb, instr, (app_pc)at_call);
     } else if (instr_is_call_indirect(instr)) {
+        //DEBUG: dr_printf("CurrPC (CallInd) " PFX "\n", instr_get_app_pc(instr));
+        dr_printf("CurrPC (CallInd) " PFX "\n", instr_get_app_pc(instr));
+        dr_printf("RetTo " PFX "\n", get_ret_to_addr(drcontext, instr));
         dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_call_ind,
                                       SPILL_SLOT_1);
     } else if (instr_is_return(instr)) {
