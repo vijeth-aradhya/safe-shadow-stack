@@ -10,6 +10,7 @@
 * Catch call/ret
 * How to get a safe/protected region in dynamorio?
 * Hnadling arbitrary jmp instr or multi-threading?
+  * `longjump` in C (see [this](https://www.geeksforgeeks.org/g-fact22-concept-of-setjump-and-longjump/))
 
 ## Resources
 
@@ -33,3 +34,4 @@
 2. https://security.stackexchange.com/questions/185125/how-to-protect-the-shadow-stack
 3. https://www.phoronix.com/scan.php?page=news_item&px=LLVM-Drops-ShadowCallStack-x64
 4. https://en.wikipedia.org/wiki/Shadow_stack
+5. x86-64 [cheatsheet](https://cs.brown.edu/courses/cs033/docs/guides/x64_cheatsheet.pdf)
