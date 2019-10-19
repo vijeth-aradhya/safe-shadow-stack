@@ -1,0 +1,19 @@
+Calls and returns turn into jumps on some architectures
+
+Page 129: Memory Safety Info
+
+dr_insert_clean_call() for my get_return_to_addr()?
+
+DR_MC_ALL
+
+--
+
+drvector_init(): http://dynamorio.org/docs/group__drcontainers.html#gae5206874469dc2551dad9e8f375e87df
+
+drmgr_set_tls_field(): http://dynamorio.org/docs/group__drmgr.html#gac92542bc4f09040f3085079e68d60f66
+
+dr_register_thread_init_event(): http://dynamorio.org/docs/dr__events_8h.html#a878920c40c76e2c18043f9db772a24c0
+
+dr_mcontext struct: http://dynamorio.org/docs/struct__dr__mcontext__t.html
+
+dr_insert_call_instrumentation(): http://dynamorio.org/docs/dr__ir__utils_8h.html#a359744bc2776333fbf8f057931ca8eeb
