@@ -41,6 +41,6 @@ endfunction (add_sample_client)
 
 configure_DynamoRIO_global(OFF ON)
 
-add_sample_client(shadowcallstack "shadowcallstack.c;utils.c" "drmgr;drsyms;drx")
+add_sample_client(shadowcallstack "shadowcallstack.c;utils.c" "drmgr;drsyms;drx;drcontainers")
 
 configure_DynamoRIO_client(shadowcallstack)

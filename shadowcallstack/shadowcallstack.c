@@ -2,7 +2,7 @@
  * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
-
+    
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,11 +52,10 @@
  */
 
 #define SHOW_SYMBOLS 1
-#define VERBOSE 1
-#define VERBOSE_VERBOSE 1
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drvector.h"
 #ifdef SHOW_SYMBOLS
 #    include "drsyms.h"
 #endif
@@ -72,39 +71,35 @@ static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                       bool for_trace, bool translating, void *user_data);
 static int tls_idx;
+static int tls_file_idx;
 
 static client_id_t my_id;
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Sample Client 'instrcalls'",
+    dr_set_client_name("DynamoRIO Sample Client 'shadowcallstack'",
                        "http://dynamorio.org/issues");
     drmgr_init();
     my_id = id;
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, DR_LOG_ALL, 1, "Client 'instrcalls' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'shadowcallstack' initializing\n");
     /* also give notification to stderr */
-#ifdef SHOW_RESULTS
-    if (dr_is_notify_on()) {
-#    ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called at init. */
-        dr_enable_console_printing();
-#    endif
-        dr_fprintf(STDERR, "Client instrcalls is running\n");
-    }
-#endif
+    
     dr_register_exit_event(event_exit);
     drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL);
     drmgr_register_thread_init_event(event_thread_init);
     drmgr_register_thread_exit_event(event_thread_exit);
+
 #ifdef SHOW_SYMBOLS
     if (drsym_init(0) != DRSYM_SUCCESS) {
         dr_log(NULL, DR_LOG_ALL, 1, "WARNING: unable to initialize symbol translation\n");
     }
 #endif
     tls_idx = drmgr_register_tls_field();
+    tls_file_idx = drmgr_register_tls_field();
     DR_ASSERT(tls_idx > -1);
+    DR_ASSERT(tls_file_idx > -1);
 }
 
 static void
@@ -125,9 +120,7 @@ event_exit(void)
 #    define IF_WINDOWS(x) /* nothing */
 #endif
 
-static void
-event_thread_init(void *drcontext)
-{
+static void event_thread_init(void *drcontext) {
     file_t f;
     /* We're going to dump our data to a per-thread file.
      * On Windows we need an absolute path so we place it in
@@ -142,13 +135,22 @@ event_thread_init(void *drcontext)
     DR_ASSERT(f != INVALID_FILE);
 
     /* store it in the slot provided in the drcontext */
-    drmgr_set_tls_field(drcontext, tls_idx, (void *)(ptr_uint_t)f);
+    drmgr_set_tls_field(drcontext, tls_file_idx, (void *)(ptr_uint_t)f);
+
+    // create dr vec pointer in private-thread storage
+    drvector_t *vec = dr_thread_alloc(drcontext, sizeof *vec);
+    DR_ASSERT(vec != NULL);
+    drvector_init(vec, 2, false, NULL);
+    drmgr_set_tls_field(drcontext, tls_idx, vec);
 }
 
-static void
-event_thread_exit(void *drcontext)
-{
-    log_file_close((file_t)(ptr_uint_t)drmgr_get_tls_field(drcontext, tls_idx));
+static void event_thread_exit(void *drcontext) {
+    // free shadow call stack
+    drvector_t *vec = drmgr_get_tls_field(drcontext, tls_idx);
+    drvector_delete(vec);
+    dr_thread_free(drcontext, vec, sizeof *vec);
+
+    log_file_close((file_t)(ptr_uint_t)drmgr_get_tls_field(drcontext, tls_file_idx));
 }
 
 #ifdef SHOW_SYMBOLS
@@ -191,51 +193,74 @@ print_address(file_t f, app_pc addr, const char *prefix)
 }
 #endif
 
-byte* get_ret_to_addr(void *drcontext, instr_t *instr) {
-    return decode_next_pc(drcontext, instr_get_app_pc(instr));
+static void print_shd_stack(bool is_call, drvector_t *vec, app_pc addr) {
+    dr_printf("+++++++++++++++++++++\n");
+    if (is_call) {
+        dr_printf("ACTION: Push " PFX " \n", addr);
+    }
+    else {
+        dr_printf("ACTION: Pop " PFX " \n", addr);
+    }
+    if (vec->entries <= 0) {
+        dr_printf("SHD_STACK: Empty\n");
+        dr_printf("+++++++++++++++++++++\n\n");
+        return;
+    }
+    int i;
+    for (i = 0; i < vec->entries; i++)
+        dr_printf("%d. " PFX " \n", i+1, vec->array[i]);
+    dr_printf("+++++++++++++++++++++\n\n");
 }
 
 static void
 at_call(app_pc instr_addr, app_pc target_addr)
 {
     file_t f =
-        (file_t)(ptr_uint_t)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+        (file_t)(ptr_uint_t)drmgr_get_tls_field(dr_get_current_drcontext(), tls_file_idx);
     dr_mcontext_t mc = { sizeof(mc), DR_MC_CONTROL /*only need xsp*/ };
     dr_get_mcontext(dr_get_current_drcontext(), &mc);
-#ifdef SHOW_SYMBOLS
+
+    // add to stack
+    app_pc shd_ret_addr;
+    shd_ret_addr = decode_next_pc(dr_get_current_drcontext(), instr_addr);
+    drvector_t *vec = drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    drvector_append(vec, shd_ret_addr);
+
+    // print stack
+    print_shd_stack(true, vec, shd_ret_addr);
+
+    //dr_fprintf(f, "----------------\n");
     print_address(f, instr_addr, "CALL @ ");
     print_address(f, target_addr, "\t to ");
     dr_fprintf(f, "\tTOS is " PFX "\n", mc.xsp);
-#else
-    dr_fprintf(f, "CALL @ " PFX " to " PFX ", TOS is " PFX "\n", instr_addr, target_addr,
-               mc.xsp);
-#endif
+    //dr_fprintf(STDOUT, "----------------\n");
 }
 
-static void
-at_call_ind(app_pc instr_addr, app_pc target_addr)
-{
+static void at_return(app_pc instr_addr, app_pc target_addr) {
     file_t f =
-        (file_t)(ptr_uint_t)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-#ifdef SHOW_SYMBOLS
-    print_address(f, instr_addr, "CALL INDIRECT @ ");
-    print_address(f, target_addr, "\t to ");
-#else
-    dr_fprintf(f, "CALL INDIRECT @ " PFX " to " PFX "\n", instr_addr, target_addr);
-#endif
-}
+        (file_t)(ptr_uint_t)drmgr_get_tls_field(dr_get_current_drcontext(), tls_file_idx);
 
-static void
-at_return(app_pc instr_addr, app_pc target_addr)
-{
-    file_t f =
-        (file_t)(ptr_uint_t)drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
-#ifdef SHOW_SYMBOLS
+    // get the top of the ret addr
+    app_pc shd_ret_addr;
+    drvector_t *vec = drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    DR_ASSERT(vec->entries > 0);
+    shd_ret_addr = vec->array[vec->entries-1];
+
+    // cmp ret addrs
+    if (shd_ret_addr != target_addr) {
+        dr_printf("WARNING: buffer overflow detected\n");
+    }
+
+    // if successful, print stack
+    vec->entries--;
+    print_shd_stack(false, vec, shd_ret_addr);
+
+    // Log ret info
+    //dr_fprintf(STDOUT, "----------------\n");
     print_address(f, instr_addr, "RETURN @ ");
     print_address(f, target_addr, "\t to ");
-#else
-    dr_fprintf(f, "RETURN @ " PFX " to " PFX "\n", instr_addr, target_addr);
-#endif
+    //dr_fprintf(f, "\n");
+    //dr_fprintf(STDOUT, "----------------\n");
 }
 
 static dr_emit_flags_t
@@ -250,27 +275,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #    endif
     }
 #endif
-    
-    //dr_mcontext_t mc = { sizeof(mc), DR_MC_CONTROL /*only need xsp*/ };
-    //dr_get_mcontext(dr_get_current_drcontext(), &mc);
-
-    /* instrument calls and returns -- ignore far calls/rets */
-    if (instr_is_call_direct(instr)) {
-        //app_pc instr_get_app_pc (instr_t* instr)
-        //byte* decode_next_pc (void* drcontext, byte * pc) 
-        //instr_get_next_app()
-        //instrlist_set_return_target()
-        //DEBUG: dr_printf("CurrPC (Call) " PFX "\n", instr_get_app_pc(instr));
-        dr_printf("CurrPC (Call) " PFX "\n", instr_get_app_pc(instr));
-        dr_printf("RetTo " PFX "\n\n", get_ret_to_addr(drcontext, instr));
-
+    if (instr_is_call(instr)) {
+        //SPILL_SLOT_1 stuff isn't there for call ind <.<
         dr_insert_call_instrumentation(drcontext, bb, instr, (app_pc)at_call);
-    } else if (instr_is_call_indirect(instr)) {
-        //DEBUG: dr_printf("CurrPC (CallInd) " PFX "\n", instr_get_app_pc(instr));
-        dr_printf("CurrPC (CallInd) " PFX "\n", instr_get_app_pc(instr));
-        dr_printf("RetTo " PFX "\n", get_ret_to_addr(drcontext, instr));
-        dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_call_ind,
-                                      SPILL_SLOT_1);
     } else if (instr_is_return(instr)) {
         dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)at_return,
                                       SPILL_SLOT_1);
