@@ -51,7 +51,7 @@
  * this sample client library.
  */
 
-#define SHOW_SYMBOLS 1
+#define SEE_SHD_STACK 1
 
 #include "dr_api.h"
 #include "drmgr.h"
@@ -73,6 +73,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 static int tls_idx;
 static int tls_stack_idx;
 static int tls_file_idx;
+static int tls_stk_f_idx;
 
 static client_id_t my_id;
 
@@ -100,9 +101,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     tls_idx = drmgr_register_tls_field();
     tls_stack_idx = drmgr_register_tls_field();
     tls_file_idx = drmgr_register_tls_field();
+    tls_stk_f_idx = drmgr_register_tls_field();
     DR_ASSERT(tls_idx > -1);
     DR_ASSERT(tls_stack_idx > -1);
     DR_ASSERT(tls_file_idx > -1);
+    DR_ASSERT(tls_stk_f_idx > -1);
 }
 
 static void
@@ -125,20 +128,23 @@ event_exit(void)
 
 static void event_thread_init(void *drcontext) {
     file_t f;
-    /* We're going to dump our data to a per-thread file.
-     * On Windows we need an absolute path so we place it in
-     * the same directory as our library. We could also pass
-     * in a path as a client argument.
-     */
-    f = log_file_open(my_id, drcontext, "./", "shadowcallstack.log",
+    f = log_file_open(my_id, drcontext, "./", "shadowcallstack-client",
 #ifndef WINDOWS
                       DR_FILE_CLOSE_ON_FORK |
 #endif
                           DR_FILE_ALLOW_LARGE);
     DR_ASSERT(f != INVALID_FILE);
-
-    // store file in dr context
     drmgr_set_tls_field(drcontext, tls_file_idx, (void *)(ptr_uint_t)f);
+
+    // store stack operations
+    file_t stk_f;
+    stk_f = log_file_open(my_id, drcontext, "./", "shadowcallstack-operations",
+#ifndef WINDOWS
+                      DR_FILE_CLOSE_ON_FORK |
+#endif
+                          DR_FILE_ALLOW_LARGE);
+    DR_ASSERT(stk_f != INVALID_FILE);
+    drmgr_set_tls_field(drcontext, tls_stk_f_idx, (void *)(ptr_uint_t)stk_f);
 
     // create dr vec pointer in private-thread storage
     drvector_t *vec = dr_thread_alloc(drcontext, sizeof *vec);
@@ -165,6 +171,7 @@ static void event_thread_exit(void *drcontext) {
     dr_thread_free(drcontext, vec_xsp, sizeof *vec_xsp);
 
     log_file_close((file_t)(ptr_uint_t)drmgr_get_tls_field(drcontext, tls_file_idx));
+    log_file_close((file_t)(ptr_uint_t)drmgr_get_tls_field(drcontext, tls_stk_f_idx));
 }
 
 #ifdef SHOW_SYMBOLS
@@ -207,28 +214,30 @@ print_address(file_t f, app_pc addr, const char *prefix)
 }
 #endif
 
-static void print_shd_stack(bool is_call, app_pc addr, app_pc xsp_addr) {
+#ifdef SEE_SHD_STACK
+static void print_shd_stack(file_t f, bool is_call, app_pc addr, app_pc xsp_addr) {
     int i;
     drvector_t *vec = drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
     drvector_t *vec_xsp = drmgr_get_tls_field(dr_get_current_drcontext(), tls_stack_idx);
 
-    dr_printf("+++++++++++++++++++++\n");
+    dr_fprintf(f, "+++++++++++++++++++++\n");
     if (is_call) {
-        dr_printf("ACTION: Push " PFX ", " PFX "\n", addr, xsp_addr);
+        dr_fprintf(f, "ACTION: Push " PFX ", " PFX "\n", addr, xsp_addr);
     }
     else {
-        dr_printf("ACTION: Pop " PFX ", " PFX "\n", addr, xsp_addr);
+        dr_fprintf(f, "ACTION: Pop " PFX ", " PFX "\n", addr, xsp_addr);
     }
     if (vec->entries <= 0) {
-        dr_printf("SHD_STACK: Empty\n");
-        dr_printf("+++++++++++++++++++++\n\n");
+        dr_fprintf(f, "SHD_STACK: Empty\n");
+        dr_fprintf(f, "+++++++++++++++++++++\n\n");
     }
     else {
         for (i = 0; i < vec->entries; i++)
-            dr_printf("%d. " PFX ", " PFX "\n", i+1, vec->array[i], vec_xsp->array[i]);
-        dr_printf("+++++++++++++++++++++\n\n");
+            dr_fprintf(f, "%d. " PFX ", " PFX "\n", i+1, vec->array[i], vec_xsp->array[i]);
+        dr_fprintf(f, "+++++++++++++++++++++\n\n");
     }
 }
+#endif
 
 static bool longjmp_ret_addr(app_pc ret_addr, app_pc curr_xsp) {
     drvector_t *vec = drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
@@ -257,6 +266,8 @@ at_call(app_pc instr_addr, app_pc target_addr)
 {
     file_t f =
         (file_t)(ptr_uint_t)drmgr_get_tls_field(dr_get_current_drcontext(), tls_file_idx);
+    file_t stk_f =
+        (file_t)(ptr_uint_t)drmgr_get_tls_field(dr_get_current_drcontext(), tls_stk_f_idx);
     dr_mcontext_t mc = { sizeof(mc), DR_MC_CONTROL /*only need xsp*/ };
     dr_get_mcontext(dr_get_current_drcontext(), &mc);
 
@@ -269,18 +280,24 @@ at_call(app_pc instr_addr, app_pc target_addr)
     drvector_append(vec, shd_ret_addr);
     drvector_append(vec_xsp, shd_xsp);
 
+#ifdef SEE_SHD_STACK
     // print stack
-    print_shd_stack(true, shd_ret_addr, shd_xsp);
+    print_shd_stack(stk_f, true, shd_ret_addr, shd_xsp);
+#endif
 
     // log call info
+#ifdef SHOW_SYMBOLS
     print_address(f, instr_addr, "CALL @ ");
     print_address(f, target_addr, "\t to ");
     dr_fprintf(f, "\tTOS is " PFX "\n", mc.xsp);
+#endif
 }
 
 static void at_return(app_pc instr_addr, app_pc target_addr) {
     file_t f =
         (file_t)(ptr_uint_t)drmgr_get_tls_field(dr_get_current_drcontext(), tls_file_idx);
+    file_t stk_f =
+        (file_t)(ptr_uint_t)drmgr_get_tls_field(dr_get_current_drcontext(), tls_stk_f_idx);
     dr_mcontext_t mc = { sizeof(mc), DR_MC_CONTROL /*only need xsp*/ };
     dr_get_mcontext(dr_get_current_drcontext(), &mc);
 
@@ -332,17 +349,24 @@ static void at_return(app_pc instr_addr, app_pc target_addr) {
     vec_xsp->entries--;
 
     // can check for good xsp value also
-    if (is_good_stack || is_backward_jmp)
-        print_shd_stack(false, shd_ret_addr, curr_xsp);
+    if (is_good_stack || is_backward_jmp) {        
+#ifdef SEE_SHD_STACK    
+        print_shd_stack(stk_f, false, shd_ret_addr, curr_xsp);
+#endif
+    }
     else {
         dr_fprintf(STDERR, "WARNING: bad xsp value, continuing thread execution.\n");
         dr_fprintf(STDERR, "EXAMINE: curr_xsp " PFX " shd_xsp " PFX "\n", curr_xsp, shd_xsp);
-        print_shd_stack(false, shd_ret_addr, shd_xsp);
+#ifdef SEE_SHD_STACK        
+        print_shd_stack(stk_f, false, shd_ret_addr, shd_xsp);
+#endif
     }
 
     // if good return, log ret info
+#ifdef SHOW_SYMBOLS
     print_address(f, instr_addr, "RETURN @ ");
     print_address(f, target_addr, "\t to ");
+#endif
 }
 
 static dr_emit_flags_t
