@@ -71,6 +71,7 @@ static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                       bool for_trace, bool translating, void *user_data);
 static int tls_idx;
+static int tls_stack_idx;
 static int tls_file_idx;
 
 static client_id_t my_id;
@@ -97,8 +98,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     }
 #endif
     tls_idx = drmgr_register_tls_field();
+    tls_stack_idx = drmgr_register_tls_field();
     tls_file_idx = drmgr_register_tls_field();
     DR_ASSERT(tls_idx > -1);
+    DR_ASSERT(tls_stack_idx > -1);
     DR_ASSERT(tls_file_idx > -1);
 }
 
@@ -134,7 +137,7 @@ static void event_thread_init(void *drcontext) {
                           DR_FILE_ALLOW_LARGE);
     DR_ASSERT(f != INVALID_FILE);
 
-    /* store it in the slot provided in the drcontext */
+    // store file in dr context
     drmgr_set_tls_field(drcontext, tls_file_idx, (void *)(ptr_uint_t)f);
 
     // create dr vec pointer in private-thread storage
@@ -142,6 +145,12 @@ static void event_thread_init(void *drcontext) {
     DR_ASSERT(vec != NULL);
     drvector_init(vec, 2, false, NULL);
     drmgr_set_tls_field(drcontext, tls_idx, vec);
+
+    // do the same for xsp
+    drvector_t *vec_xsp = dr_thread_alloc(drcontext, sizeof *vec_xsp);
+    DR_ASSERT(vec_xsp != NULL);
+    drvector_init(vec_xsp, 2, false, NULL);
+    drmgr_set_tls_field(drcontext, tls_stack_idx, vec_xsp);
 }
 
 static void event_thread_exit(void *drcontext) {
@@ -149,6 +158,11 @@ static void event_thread_exit(void *drcontext) {
     drvector_t *vec = drmgr_get_tls_field(drcontext, tls_idx);
     drvector_delete(vec);
     dr_thread_free(drcontext, vec, sizeof *vec);
+
+    // same for xsp vec
+    drvector_t *vec_xsp = drmgr_get_tls_field(drcontext, tls_stack_idx);
+    drvector_delete(vec_xsp);
+    dr_thread_free(drcontext, vec_xsp, sizeof *vec_xsp);
 
     log_file_close((file_t)(ptr_uint_t)drmgr_get_tls_field(drcontext, tls_file_idx));
 }
@@ -193,23 +207,49 @@ print_address(file_t f, app_pc addr, const char *prefix)
 }
 #endif
 
-static void print_shd_stack(bool is_call, drvector_t *vec, app_pc addr) {
+static void print_shd_stack(bool is_call, app_pc addr, app_pc xsp_addr) {
+    int i;
+    drvector_t *vec = drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    drvector_t *vec_xsp = drmgr_get_tls_field(dr_get_current_drcontext(), tls_stack_idx);
+
     dr_printf("+++++++++++++++++++++\n");
     if (is_call) {
-        dr_printf("ACTION: Push " PFX " \n", addr);
+        dr_printf("ACTION: Push " PFX ", " PFX "\n", addr, xsp_addr);
     }
     else {
-        dr_printf("ACTION: Pop " PFX " \n", addr);
+        dr_printf("ACTION: Pop " PFX ", " PFX "\n", addr, xsp_addr);
     }
     if (vec->entries <= 0) {
         dr_printf("SHD_STACK: Empty\n");
         dr_printf("+++++++++++++++++++++\n\n");
-        return;
     }
+    else {
+        for (i = 0; i < vec->entries; i++)
+            dr_printf("%d. " PFX ", " PFX "\n", i+1, vec->array[i], vec_xsp->array[i]);
+        dr_printf("+++++++++++++++++++++\n\n");
+    }
+}
+
+static bool longjmp_ret_addr(app_pc ret_addr, app_pc curr_xsp) {
+    drvector_t *vec = drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    drvector_t *vec_xsp = drmgr_get_tls_field(dr_get_current_drcontext(), tls_stack_idx);
     int i;
-    for (i = 0; i < vec->entries; i++)
-        dr_printf("%d. " PFX " \n", i+1, vec->array[i]);
-    dr_printf("+++++++++++++++++++++\n\n");
+    long int tmp;
+    while(vec->entries > 0) {
+        i = vec->entries-1;
+        if (vec->array[i] == ret_addr) {
+            // might overflow?
+            tmp = abs((void *)curr_xsp - vec_xsp->array[i]);
+            if (tmp <= 8 && tmp >= 0) {
+                dr_fprintf(STDERR, "WARNING: backward longjmp detected.\n");
+                dr_fprintf(STDERR, "ACTION: safely continue execution of thread.\n");
+                return true;
+            }
+        }
+        vec->entries--;
+        vec_xsp->entries--;
+    }
+    return false;
 }
 
 static void
@@ -221,46 +261,88 @@ at_call(app_pc instr_addr, app_pc target_addr)
     dr_get_mcontext(dr_get_current_drcontext(), &mc);
 
     // add to stack
-    app_pc shd_ret_addr;
+    app_pc shd_ret_addr, shd_xsp;
     shd_ret_addr = decode_next_pc(dr_get_current_drcontext(), instr_addr);
     drvector_t *vec = drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    drvector_t *vec_xsp = drmgr_get_tls_field(dr_get_current_drcontext(), tls_stack_idx);
+    shd_xsp = (unsigned char*)mc.xsp;
     drvector_append(vec, shd_ret_addr);
+    drvector_append(vec_xsp, shd_xsp);
 
     // print stack
-    print_shd_stack(true, vec, shd_ret_addr);
+    print_shd_stack(true, shd_ret_addr, shd_xsp);
 
-    //dr_fprintf(f, "----------------\n");
+    // log call info
     print_address(f, instr_addr, "CALL @ ");
     print_address(f, target_addr, "\t to ");
     dr_fprintf(f, "\tTOS is " PFX "\n", mc.xsp);
-    //dr_fprintf(STDOUT, "----------------\n");
 }
 
 static void at_return(app_pc instr_addr, app_pc target_addr) {
     file_t f =
         (file_t)(ptr_uint_t)drmgr_get_tls_field(dr_get_current_drcontext(), tls_file_idx);
+    dr_mcontext_t mc = { sizeof(mc), DR_MC_CONTROL /*only need xsp*/ };
+    dr_get_mcontext(dr_get_current_drcontext(), &mc);
 
     // get the top of the ret addr
-    app_pc shd_ret_addr;
+    bool is_backward_jmp, is_good_ret, is_good_stack;
+    app_pc shd_ret_addr, shd_xsp, curr_xsp;
     drvector_t *vec = drmgr_get_tls_field(dr_get_current_drcontext(), tls_idx);
+    drvector_t *vec_xsp = drmgr_get_tls_field(dr_get_current_drcontext(), tls_stack_idx);
+    
     DR_ASSERT(vec->entries > 0);
+    DR_ASSERT(vec_xsp->entries > 0);
     shd_ret_addr = vec->array[vec->entries-1];
+    shd_xsp = vec_xsp->array[vec_xsp->entries-1];
+    curr_xsp = (unsigned char*)mc.xsp;
+    is_backward_jmp = false;
+    is_good_ret = (shd_ret_addr == target_addr);
+    is_good_stack = (abs(curr_xsp - shd_xsp) >= 0 && abs(curr_xsp - shd_xsp) <= 8);
 
     // cmp ret addrs
-    if (shd_ret_addr != target_addr) {
-        dr_printf("WARNING: buffer overflow detected\n");
+    if (!is_good_ret) {
+        // considering ENTER/LEAVE as in x86-64 and gcc
+        // see: https://stackoverflow.com/a/29790275
+        // idea: xsp at CALL is xsp-8 at RET (in a normal func)
+
+        // check if stack matches
+        // if yes, then BUFFER OVERFLOW
+        if (is_good_stack) {
+            // exit program safely
+            dr_fprintf(STDERR, "WARNING: buffer overflow detected.\n");
+            dr_fprintf(STDERR, "ACTION: exiting thread safely with exit code 1.\n");
+            dr_exit_process(1);
+        }
+        else {
+        // if no, then longjmp
+        // see: http://vmresu.me/blog/2016/02/09/lets-understand-setjmp-slash-longjmp/
+        // if backward longjmp, iteratively look for the function where setjmp is present
+            is_backward_jmp = longjmp_ret_addr(target_addr, curr_xsp);
+            if(!is_backward_jmp) {
+                // if no matching stack frame
+                // probably forward longjmp, exit program safely
+                dr_fprintf(STDERR, "WARNING: forward longjmp detected.\n");
+                dr_fprintf(STDERR, "ACTION: undefined behaviour, exiting thread safely with exit code 139.\n");
+                dr_exit_process(139);
+            }
+        }
+    }
+    // if successful, update stack
+    vec->entries--;
+    vec_xsp->entries--;
+
+    // can check for good xsp value also
+    if (is_good_stack || is_backward_jmp)
+        print_shd_stack(false, shd_ret_addr, curr_xsp);
+    else {
+        dr_fprintf(STDERR, "WARNING: bad xsp value, continuing thread execution.\n");
+        dr_fprintf(STDERR, "EXAMINE: curr_xsp " PFX " shd_xsp " PFX "\n", curr_xsp, shd_xsp);
+        print_shd_stack(false, shd_ret_addr, shd_xsp);
     }
 
-    // if successful, print stack
-    vec->entries--;
-    print_shd_stack(false, vec, shd_ret_addr);
-
-    // Log ret info
-    //dr_fprintf(STDOUT, "----------------\n");
+    // if good return, log ret info
     print_address(f, instr_addr, "RETURN @ ");
     print_address(f, target_addr, "\t to ");
-    //dr_fprintf(f, "\n");
-    //dr_fprintf(STDOUT, "----------------\n");
 }
 
 static dr_emit_flags_t
