@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BUF_SIZE 1000
+#define BUF_SIZE 700
 
 int vul2(char *arg, char *buffer2)
 {

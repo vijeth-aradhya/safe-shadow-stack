@@ -9,8 +9,8 @@ LDFLAGS :=
 LDLIBS :=
 
 # sources
-tsources := program1.c program2.c program3.c
-targets := program1 program2 program3
+tsources := program1.c 
+targets := program1
 
 # gmake magic
 .PHONY: default all clean generate
@@ -24,8 +24,7 @@ generate:
 
 install: $(targets)
 	execstack -s program1
-	execstack -s program2
 
 clean:
-	$(RM) $(targets) $(sources:.c=.o) $(tsources)
+	$(RM) $(targets) $(sources:.c=.o)
 
