@@ -19,12 +19,7 @@ For someone who is new to `DBI` and Dynamorio, I recommend, running `libcountcal
 * [ ] Add extensive test suite
   * *Note*: In addition to the basic tests, the following programs in [coreutils](http://www.maizure.org/projects/decoded-gnu-coreutils/) were run (on benign inputs) with shadowcallstack client: md5sum, who, ls, echo, uname, pwd, touch.
   * Of course, more complicated test cases in `longjmp_progs` and `exploit_progs` category should be added. In addition, the testing should be automated.
-
-## Resources
-
-* [Code Manipulation API](http://dynamorio.org/docs/API_BT.html) (Dynamo docs)
-* http://dynamorio.org/docs/using.html
-* `drmgr_register_bb_instrumentation_event()`
+* [ ] Add benchmark results
 
 ## System
 
@@ -35,8 +30,9 @@ For someone who is new to `DBI` and Dynamorio, I recommend, running `libcountcal
 ## Helpful Blogs
 
 * http://deniable.org/reversing/binary-instrumentation
+* http://vmresu.me/blog/2016/02/09/lets-understand-setjmp-slash-longjmp/
 
-## Additional Readings
+## Some Readings
 
 1. https://clang.llvm.org/docs/ShadowCallStack.html#security
 2. https://security.stackexchange.com/questions/185125/how-to-protect-the-shadow-stack
