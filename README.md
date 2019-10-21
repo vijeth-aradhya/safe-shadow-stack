@@ -38,5 +38,4 @@ For someone who is new to `DBI` and Dynamorio, I recommend, running `libcountcal
 2. https://security.stackexchange.com/questions/185125/how-to-protect-the-shadow-stack
 3. https://www.phoronix.com/scan.php?page=news_item&px=LLVM-Drops-ShadowCallStack-x64
 4. https://en.wikipedia.org/wiki/Shadow_stack
-5. x86-64 [cheatsheet](https://cs.brown.edu/courses/cs033/docs/guides/x64_cheatsheet.pdf)
-  * [Compiling](https://w3.cs.jmu.edu/lam2mo/cs261_2017_08/files/12-asm_ctrlflow.pdf) loops using `jmp`
+5. x86-64 [cheatsheet](https://cs.brown.edu/courses/cs033/docs/guides/x64_cheatsheet.pdf); [compiling](https://w3.cs.jmu.edu/lam2mo/cs261_2017_08/files/12-asm_ctrlflow.pdf) loops using `jmp`
