@@ -1,7 +1,8 @@
-/* **********************************************************
+/* ***************************************************************
+ * Copyright (c) 2019 Vijeth Tumkur Aradhya.  All rights reserved.
  * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
- * **********************************************************/
+ * ***************************************************************/
     
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -29,26 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
- */
-
-/* Code Manipulation API Sample:
- * instrcalls.c
- *
- * Instruments direct calls, indirect calls, and returns in the target
- * application.  For each dynamic execution, the call target and other
- * key information is written to a log file.  Note that this log file
- * can become quite large, and this client incurs more overhead than
- * the other clients due to its log file.
- *
- * If the SHOW_SYMBOLS define is on, this sample uses the drsyms
- * DynamoRIO Extension to obtain symbol information from raw
- * addresses.  This requires a relatively recent copy of dbghelp.dll
- * (6.0+), which is not available in the system directory by default
- * on Windows 2000.  To use this sample with SHOW_SYMBOLS on Windows
- * 2000, download the Debugging Tools for Windows package from
- * http://www.microsoft.com/whdc/devtools/debugging/default.mspx and
- * place dbghelp.dll in the same directory as either drsyms.dll or as
- * this sample client library.
  */
 
 #define SEE_SHD_STACK 1
