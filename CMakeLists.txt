@@ -1,14 +1,11 @@
 cmake_minimum_required(VERSION 3.7)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ggdb -O3")
-set(PROJECT_SOURCE_DIR "/home/vt-aradhya/NUS/dynamorio/bin64")
 
 option(SHOW_SYMBOLS "Use symbol lookup in clients that support it" ON)
 if (SHOW_SYMBOLS)
   add_definitions(-DSHOW_SYMBOLS)
 endif (SHOW_SYMBOLS)
-
-set(DynamoRIO_DIR "${PROJECT_SOURCE_DIR}/../cmake")
 
 find_package(DynamoRIO ${VERSION_NUMBER_MAJOR}.${VERSION_NUMBER_MINOR})
 if (NOT DynamoRIO_FOUND)
