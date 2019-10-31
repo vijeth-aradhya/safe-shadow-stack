@@ -14,6 +14,13 @@ For someone who is new to `DBI` and Dynamorio, I recommend, running `libcountcal
 
 _shadowcallstack_ makes use of Dynamorio's safe [thread-local storage](http://dynamorio.org/docs/dr__tools_8h.html#a4274226adda06339e247e4a311abdd9b); you can read more about Dynamorio's code cache and its safety in their [tutorial](http://dynamorio.org/tutorial-cgo17.html) (Page 129 onwards), or in their [doc](http://dynamorio.org/docs/using.html#sec_64bit_reach). In thid dr client, `drvector`s and files are stored in the reachable thread-specfic storage in `drcontext`.
 
+## Using
+
+* Set `DYNAMORIO_HOME` to the dynamrio directory (in `build.sh`)
+* Set `SHADOWCALLSTACK_DIR` to this project directory
+* `./build.sh` builds the dr client
+* To use the client, `drrun -c $SHADOWCALLSTACK_DIR/build/libshadowcallstack.so -- <program>`
+
 ## Notes
 
 * [x] Handling multi-threading
