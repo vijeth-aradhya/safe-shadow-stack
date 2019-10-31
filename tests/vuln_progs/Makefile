@@ -4,13 +4,13 @@ RM := rm -f
 CP := cp
 
 # flags
-CFLAGS := -ggdb -fno-stack-protector
+CFLAGS := -ggdb -fno-stack-protector -z execstack
 LDFLAGS :=
 LDLIBS :=
 
 # sources
-tsources := program1.c 
-targets := program1
+tsources := program1.c program2.c
+targets := program1 program2
 
 # gmake magic
 .PHONY: default all clean generate
