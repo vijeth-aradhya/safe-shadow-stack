@@ -8,29 +8,28 @@ To do this, this dr client uses `drvector` (in `drcontainers`) to store both the
 
 Notice that, in case of buffer overflow attacks, the return address does not match, but the stack pointer does match. But, in case of `longjmp`, both the return address and stack pointer values do not match!
 
-For someone who is new to `DBI` and Dynamorio, I recommend, running `libcountcalls.so` or `libinstrcalls.so` dr client with a simple helloworld C program; read the source code to get an idea about `dr_api.h` and `drmgr.h`.
+For someone who is new to `DBI` and Dynamorio, I recommend, running `libcountcalls.so` or `libinstrcalls.so` dr client with a simple helloworld C program; read the source code to get an idea about `dr_api.h`.
 
-## Safety
+## Benchmarks
 
-_shadowcallstack_ makes use of Dynamorio's safe [thread-local storage](http://dynamorio.org/docs/dr__tools_8h.html#a4274226adda06339e247e4a311abdd9b); you can read more about Dynamorio's code cache and its safety in their [tutorial](http://dynamorio.org/tutorial-cgo17.html) (Page 129 onwards), or in their [doc](http://dynamorio.org/docs/using.html#sec_64bit_reach). In thid dr client, `drvector`s and files are stored in the reachable thread-specfic storage in `drcontext`.
-
-## Using
-
-* Set `DYNAMORIO_HOME` to the dynamrio directory (in `build.sh`)
-* Set `SHADOWCALLSTACK_DIR` to this project directory
-* `./build.sh` builds the dr client
-* To use the client, `drrun -c $SHADOWCALLSTACK_DIR/build/libshadowcallstack.so -- <program>`
+Program | Program without DynamoRio | Program with vanilla Dynamorio | Program with ShadowCallStack |
+------- | ------------------------- | ------------------------------ | ---------------------------- |
+`echo`  | 0.000                     | 0.094                          | 1.480                        |
+`touch` | 0.084                     | 0.108                          | 1.561                        |
+`md5sum`| 0.005                     | 0.093                          | 1.811                        |
+`who`   | 0.005                     | 0.109                          | 2.404                        |
+`pwd`   | 0.000                     | 0.081                          | 1.359                        |
 
 ## Notes
 
 * [x] Handling multi-threading
 * [x] Handling `longjmp`
-* [ ] Any other excpetional cases
-  * `call`s and `ret`s turn into `jmp`s on some architectures?!
-* [ ] Add extensive test suite
+* [x] Add extensive test suite
   * *Note*: In addition to the basic tests, the following programs in [coreutils](http://www.maizure.org/projects/decoded-gnu-coreutils/) were run (on benign inputs) with shadowcallstack client: md5sum, who, ls, echo, uname, pwd, touch.
   * Of course, more complicated test cases in `longjmp_progs` and `exploit_progs` category should be added. In addition, the testing should be automated.
-* [ ] Add benchmark results
+* [x] Add benchmark results
+* [ ] Any other excpetional cases
+  * `call`s and `ret`s turn into `jmp`s on some architectures?!
 
 ## System
 
