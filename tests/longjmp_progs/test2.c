@@ -33,7 +33,7 @@ void func2(int t) {
     if (t <= 50)
         func2(t+1);
     else
-        func3()
+        func3();
 }
 
 void func3() {
