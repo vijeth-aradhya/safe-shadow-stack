@@ -1,0 +1,15 @@
+#!/bin/sh
+
+alias drrun='~/NUS/dynamorio/bin64/drrun' ;
+echo "=== running exploit tests ===" ;
+drrun -c /home/vt-aradhya/NUS/safe-shadow-stack/build/libshadowcallstack.so -- /home/vt-aradhya/NUS/safe-shadow-stack/tests/exploit_progs/exploit1 ;
+echo "" ;
+drrun -c /home/vt-aradhya/NUS/safe-shadow-stack/build/libshadowcallstack.so -- /home/vt-aradhya/NUS/safe-shadow-stack/tests/exploit_progs/exploit2 ;
+echo "=== running random tests ===" ;
+drrun -c /home/vt-aradhya/NUS/safe-shadow-stack/build/libshadowcallstack.so -- /home/vt-aradhya/NUS/safe-shadow-stack/tests/rand_progs/helloworld ;
+echo "=== running longjmp tests ===" ;
+drrun -c /home/vt-aradhya/NUS/safe-shadow-stack/build/libshadowcallstack.so -- /home/vt-aradhya/NUS/safe-shadow-stack/tests/longjmp_progs/test1 ;
+echo "" ;
+drrun -c /home/vt-aradhya/NUS/safe-shadow-stack/build/libshadowcallstack.so -- /home/vt-aradhya/NUS/safe-shadow-stack/tests/longjmp_progs/test2 ;
+echo "" ;
+drrun -c /home/vt-aradhya/NUS/safe-shadow-stack/build/libshadowcallstack.so -- /home/vt-aradhya/NUS/safe-shadow-stack/tests/longjmp_progs/test3 ;

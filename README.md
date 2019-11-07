@@ -10,6 +10,17 @@ Notice that, in case of buffer overflow attacks, the return address does not mat
 
 For someone who is new to `DBI` and Dynamorio, I recommend, running `libcountcalls.so` or `libinstrcalls.so` dr client with a simple helloworld C program; read the source code to get an idea about `dr_api.h`.
 
+## Using
+
+* Set `DYNAMORIO_HOME` to the dynamrio directory (in `build.sh`)
+* Set `SHADOWCALLSTACK_DIR` to this project directory
+* `./build.sh` builds the dr client
+* To use the client, `drrun -c $SHADOWCALLSTACK_DIR/build/libshadowcallstack.so -- <program>`
+
+### Testing
+
+* `bin/run_tests` is currently used to run the client against different tests
+
 ## Benchmarks
 
 Program | Program without DynamoRio | Program with vanilla Dynamorio | Program with ShadowCallStack |
@@ -26,7 +37,7 @@ Program | Program without DynamoRio | Program with vanilla Dynamorio | Program w
 * [x] Handling `longjmp`
 * [x] Add extensive test suite
   * *Note*: In addition to the basic tests, the following programs in [coreutils](http://www.maizure.org/projects/decoded-gnu-coreutils/) were run (on benign inputs) with shadowcallstack client: md5sum, who, ls, echo, uname, pwd, touch.
-  * Of course, more complicated test cases in `longjmp_progs` and `exploit_progs` category should be added. In addition, the testing should be automated.
+  * Of course, more complicated test cases in `longjmp_progs` and `exploit_progs` category should be added.
 * [x] Add benchmark results
 * [ ] Any other excpetional cases
   * `call`s and `ret`s turn into `jmp`s on some architectures?!
