@@ -32,7 +32,7 @@
  * DAMAGE.
  */
 
-#define SEE_SHD_STACK 1
+// #define SEE_SHD_STACK 1
 
 #include "dr_api.h"
 #include "drmgr.h"
