@@ -25,11 +25,11 @@ For someone who is new to `DBI` and Dynamorio, I recommend, running `libcountcal
 
 Program | Program without DynamoRio | Program with vanilla Dynamorio | Program with ShadowCallStack |
 ------- | ------------------------- | ------------------------------ | ---------------------------- |
-`echo`  | 0.000                     | 0.094                          | 1.480                        |
-`touch` | 0.004                     | 0.087                          | 1.216                        |
-`md5sum`| 0.005                     | 0.093                          | 1.811                        |
-`who`   | 0.005                     | 0.109                          | 2.404                        |
-`pwd`   | 0.000                     | 0.081                          | 1.359                        |
+`echo`  | 0.000                     | 0.094                          | 0.154                        |
+`touch` | 0.004                     | 0.087                          | 0.142                        |
+`md5sum`| 0.005                     | 0.093                          | 0.162                        |
+`who`   | 0.005                     | 0.109                          | 0.211                        |
+`pwd`   | 0.000                     | 0.081                          | 0.136                        |
 
 ## Notes
 
