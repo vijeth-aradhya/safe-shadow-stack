@@ -10,6 +10,15 @@ Notice that, in case of buffer overflow attacks, the return address does not mat
 
 For someone who is new to `DBI` and Dynamorio, I recommend, running `libcountcalls.so` or `libinstrcalls.so` dr client with a simple helloworld C program; read the source code to get an idea about `dr_api.h`.
 
+### Safety
+
+_shadowcallstack_ makes use of Dynamorio's safe [thread-local storage](http://dynamorio.org/docs/dr__tools_8h.html#a4274226adda06339e247e4a311abdd9b); you can read more about Dynamorio's code cache and its safety in their [tutorial](http://dynamorio.org/tutorial-cgo17.html) (Page 129 onwards), or in their [doc](http://dynamorio.org/docs/using.html#sec_64bit_reach). In thid dr client, `drvector`s and files are stored in the reachable thread-specfic storage in `drcontext`.
+
+Some of the protections in Dynamrio (see [this](https://www.google.com/url?q=https%3A%2F%2Fgithub.com%2FDynamoRIO%2Fdynamorio%2Fwiki%2FCode-Content%23security&sa=D&sntz=1&usg=AFQjCNGG1-MNdUfzBmKa-G2GtfoK85DVRQ) too):
+  * ASLR of its memory: code cache, heap, and stack
+  * Guard pages around every memory block: cache, heap, and stack
+  * DR stack starts from the base again each time.
+
 ## Using
 
 * Set `DYNAMORIO_HOME` to the dynamrio directory (in `build.sh`)
