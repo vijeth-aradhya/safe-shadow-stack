@@ -17,7 +17,7 @@ _shadowcallstack_ makes use of Dynamorio's safe [thread-local storage](http://dy
 Some of the protections in Dynamrio (see [this](https://www.google.com/url?q=https%3A%2F%2Fgithub.com%2FDynamoRIO%2Fdynamorio%2Fwiki%2FCode-Content%23security&sa=D&sntz=1&usg=AFQjCNGG1-MNdUfzBmKa-G2GtfoK85DVRQ) too):
   * ASLR of its memory: code cache, heap, and stack
   * Guard pages around every memory block: cache, heap, and stack
-  * DR stack starts from the base again each time.
+  * Dynamrio stack starts from the base again each time
 
 ## Using
 
@@ -48,14 +48,13 @@ Program | Program without DynamoRio | Program with vanilla Dynamorio | Program w
   * *Note*: In addition to the basic tests, the following programs in [coreutils](http://www.maizure.org/projects/decoded-gnu-coreutils/) were run (on benign inputs) with shadowcallstack client: md5sum, who, ls, echo, uname, pwd, touch.
   * Of course, more complicated test cases in `longjmp_progs` and `exploit_progs` category should be added.
 * [x] Add benchmark results
-* [ ] Any other excpetional cases
-  * `call`s and `ret`s turn into `jmp`s on some architectures?!
 
 ## System
 
 * Operating System: Ubuntu 16.04.6 LTS
 * Cmake version: 3.14.7
 * Architecture: x86-64
+* Dynamorio version: [7.91.18229](https://github.com/DynamoRIO/dynamorio/releases/download/cronbuild-7.91.18229/DynamoRIO-x86_64-Linux-7.91.18229-0.tar.gz)
 
 ## Helpful Blogs
 
