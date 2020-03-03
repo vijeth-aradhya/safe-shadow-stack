@@ -42,12 +42,16 @@ Program | Program without DynamoRio | Program with vanilla Dynamorio | Program w
 
 ## Notes
 
-* [x] Handling multi-threading
-* [x] Handling `longjmp`
-* [x] Add extensive test suite
-  * *Note*: In addition to the basic tests, the following programs in [coreutils](http://www.maizure.org/projects/decoded-gnu-coreutils/) were run (on benign inputs) with shadowcallstack client: md5sum, who, ls, echo, uname, pwd, touch.
-  * Of course, more complicated test cases in `longjmp_progs` and `exploit_progs` category should be added.
-* [x] Add benchmark results
+&#x2611; Handling multi-threading
+
+&#x2611; Handling `longjmp`
+
+&#x2611; Add extensive test suite
+
+* *Note*: In addition to the basic tests, the following programs in [coreutils](http://www.maizure.org/projects/decoded-gnu-coreutils/) were run (on benign inputs) with shadowcallstack client: md5sum, who, ls, echo, uname, pwd, touch.
+* Of course, more complicated test cases in `longjmp_progs` and `exploit_progs` category should be added.
+
+&#x2611; Add benchmark results
 
 ## System
 
